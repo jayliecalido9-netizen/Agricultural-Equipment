@@ -1,0 +1,7 @@
+* text=auto eol=lf
+# Preserve the exact bytes/checksums of migrations already applied to databases.
+backend/prisma/migrations/**/migration.sql -text
+*.pdf binary
+*.docx binary
+*.png binary
+*.zip binary

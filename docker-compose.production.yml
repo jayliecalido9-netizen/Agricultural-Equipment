@@ -1,0 +1,52 @@
+# Docker Compose 2.24.4+. Use together with docker-compose.yml.
+services:
+  db:
+    ports: !reset []
+    logging: &bounded-logs
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+  db-tools:
+    environment:
+      NODE_ENV: production
+      ALLOW_DEMO_SEED: "false"
+      DEMO_ADMIN_PASSWORD: ""
+  db-migrate:
+    environment:
+      NODE_ENV: production
+    logging: *bounded-logs
+  backend:
+    ports: !reset []
+    init: true
+    environment:
+      NODE_ENV: production
+      COOKIE_SECURE: "true"
+      TRUST_PROXY_HOPS: "2"
+      FRONTEND_ORIGIN: https://${AEAMS_DOMAIN:?Set AEAMS_DOMAIN in .env.production}
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    pids_limit: 200
+    stop_grace_period: 30s
+    logging: *bounded-logs
+  frontend:
+    ports: !reset []
+    security_opt: [no-new-privileges:true]
+    logging: *bounded-logs
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      AEAMS_DOMAIN: ${AEAMS_DOMAIN:?Set AEAMS_DOMAIN in .env.production}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL for certificate renewal notices}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend: { condition: service_healthy }
+    networks: [erp]
+    security_opt: [no-new-privileges:true]
+    logging: *bounded-logs
+volumes:
+  caddy_data:
+  caddy_config:

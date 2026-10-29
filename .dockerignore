@@ -1,0 +1,13 @@
+node_modules
+**/node_modules
+**/dist
+**/*.tsbuildinfo
+.env
+.env.*
+.git
+backups
+*.log
+.test-data
+uploads
+test-results
+artifacts

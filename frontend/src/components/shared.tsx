@@ -1,0 +1,41 @@
+import { useState,type ReactNode } from 'react';
+import { useForm } from 'react-hook-form';
+import { Search,ChevronLeft,ChevronRight,ArrowUpDown,Inbox,LoaderCircle,AlertCircle,RefreshCw } from 'lucide-react';
+import { useQuery,useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { Button } from './ui/button';
+import { Dialog } from './ui/dialog';
+import { api,message,type DataRow,type Lookups,type PageData } from '../lib/api';
+import { label,cn } from '../lib/utils';
+
+export function Badge({value}:{value:unknown}) {const v=String(value||'UNKNOWN');return <span className={cn('badge',`badge-${v.toLowerCase()}`)}><span/>{label(v==='FULFILLED'?'COMPLETED':v==='RELEASED'?'BORROWED':v==='REQUESTED'?'PENDING':v)}</span>;}
+export function PageHeader({eyebrow='EQUIPMENT & ASSET MANAGEMENT',title,description,actions}:{eyebrow?:string;title:string;description:string;actions?:ReactNode}) {return <div className="page-heading"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p className="page-description">{description}</p></div><div className="heading-actions">{actions}</div></div>;}
+export function Loading(){return <div className="loading-state"><LoaderCircle className="spin" size={24}/><span>Loading your workspace…</span></div>;}
+export function ErrorState({error,retry}:{error:unknown;retry?:()=>void}){return <div className="state-panel error-panel"><AlertCircle size={28}/><h3>We couldn’t load this information</h3><p>{message(error)}</p>{retry&&<Button variant="outline" onClick={retry}><RefreshCw size={15}/>Try again</Button>}</div>;}
+export function Empty({title='No records found',description='Records will appear here once they are added.',action}:{title?:string;description?:string;action?:ReactNode}) {return <div className="state-panel"><div className="empty-icon"><Inbox size={26}/></div><h3>{title}</h3><p>{description}</p>{action}</div>;}
+export function useLookups(){return useQuery({queryKey:['lookups'],queryFn:async()=>(await api.get<{data:Lookups}>('/lookups')).data.data,staleTime:30000});}
+export interface Column {key:string;title:string;render?:(row:DataRow)=>ReactNode}
+export function Table({rows,columns,emptyText}:{rows:DataRow[];columns:Column[];emptyText?:string}) {
+  if (!rows.length) return <Empty description={emptyText}/>;
+  return <div className="table-scroll"><table><thead><tr>{columns.map(c=><th key={c.key}>{c.title}</th>)}</tr></thead><tbody>{rows.map((row,i)=><tr key={row.id||i}>{columns.map(c=><td key={c.key}>{c.render?c.render(row):String(row[c.key]??'—')}</td>)}</tr>)}</tbody></table></div>;
+}
+export function ResourceTable({endpoint,columns,filters,query:extra={},onData}:{endpoint:string;columns:Column[];filters?:ReactNode;query?:Record<string,unknown>;onData?:(rows:DataRow[])=>void}) {
+  const [search,setSearch]=useState(''),[page,setPage]=useState(1),[sort,setSort]=useState('desc');
+  const query=useQuery({queryKey:[endpoint,search,page,sort,extra],queryFn:async()=>{const data=(await api.get<PageData>(endpoint,{params:{search,page,limit:12,sort,...extra}})).data;onData?.(data.data);return data;}});
+  return <section className="panel resource-panel"><div className="table-toolbar"><label className="search-field"><Search size={17}/><input aria-label="Search records" placeholder="Search records…" value={search} onChange={e=>{setSearch(e.target.value);setPage(1);}}/></label><div className="toolbar-filters">{filters}<Button variant="outline" size="sm" onClick={()=>setSort(sort==='desc'?'asc':'desc')}><ArrowUpDown size={14}/>{sort==='desc'?'Newest first':'Oldest first'}</Button></div></div>{query.isPending?<Loading/>:query.isError?<ErrorState error={query.error} retry={()=>void query.refetch()}/>:<><Table rows={query.data.data} columns={columns}/><div className="pagination"><span>{query.data.pagination.total} records · Page {page} of {Math.max(1,query.data.pagination.pages)}</span><div><Button aria-label="Previous page" variant="outline" size="icon" disabled={page===1} onClick={()=>setPage(page-1)}><ChevronLeft size={16}/></Button><Button aria-label="Next page" variant="outline" size="icon" disabled={page>=query.data.pagination.pages} onClick={()=>setPage(page+1)}><ChevronRight size={16}/></Button></div></div></>}</section>;
+}
+export interface Field {name:string;label:string;type?:string;required?:boolean;options?:{value:string;label:string}[];defaultValue?:string;hint?:string;min?:string;max?:string;minLength?:number}
+export function FormFields({fields,register,errors}:{fields:Field[];register:ReturnType<typeof useForm<Record<string,string>>>['register'];errors:ReturnType<typeof useForm<Record<string,string>>>['formState']['errors']}) {
+  return <div className="form-grid">{fields.map(field=><label key={field.name} className={cn('form-field',(field.type==='textarea')&&'full-width')}><span>{field.label}{field.required&&<b> *</b>}</span>{field.options?<select {...register(field.name,{required:field.required?'This field is required.':false})}><option value="">Select {field.label.toLowerCase()}</option>{field.options.map(o=><option key={o.value} value={o.value}>{o.label}</option>)}</select>:field.type==='textarea'?<textarea rows={3} {...register(field.name,{required:field.required?'This field is required.':false,maxLength:{value:5000,message:'Use at most 5,000 characters.'}})}/>:<input type={field.type||'text'} min={field.min} max={field.max} step={field.type==='number'?'any':field.type==='datetime-local'?'0.001':undefined} {...register(field.name,{required:field.required?'This field is required.':false,...(field.type==='password'?{minLength:{value:field.minLength??16,message:'Use at least '+(field.minLength??16)+' characters.'}}:{})})}/>} {field.hint&&<small>{field.hint}</small>}{errors[field.name]&&<small className="field-error">{errors[field.name]?.message}</small>}</label>)}</div>;
+}
+export function FormDialog({open,onClose,title,fields,values={},onSubmit,description,submitLabel='Save changes'}:{open:boolean;onClose:()=>void;title:string;fields:Field[];values?:Record<string,string>;onSubmit:(values:Record<string,string>)=>Promise<unknown>;description?:string;submitLabel?:string}) {
+  return <Dialog open={open} onOpenChange={v=>!v&&onClose()} title={title} description={description}>{open&&<FormContent fields={fields} values={values} onClose={onClose} onSubmit={onSubmit} submitLabel={submitLabel}/>}</Dialog>;
+}
+function FormContent({fields,values,onClose,onSubmit,submitLabel}:{fields:Field[];values:Record<string,string>;onClose:()=>void;onSubmit:(v:Record<string,string>)=>Promise<unknown>;submitLabel:string}) {
+  const form=useForm<Record<string,string>>({defaultValues:Object.fromEntries(fields.map(f=>[f.name,values[f.name]??f.defaultValue??'']))}),[error,setError]=useState(''),qc=useQueryClient();
+  return <form onSubmit={form.handleSubmit(async values=>{setError('');try {await onSubmit(values);await qc.invalidateQueries();toast.success('Saved successfully');onClose();}catch(e){setError(message(e));}})}><FormFields fields={fields} register={form.register} errors={form.formState.errors}/>{error&&<p role="alert" className="form-error">{error}</p>}<div className="dialog-footer"><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button disabled={form.formState.isSubmitting}>{form.formState.isSubmitting?<><LoaderCircle size={16} className="spin"/>Saving…</>:submitLabel}</Button></div></form>;
+}
+export function Confirm({open,onClose,onConfirm,title,description}:{open:boolean;onClose:()=>void;onConfirm:()=>Promise<unknown>;title:string;description:string}) {
+  const [busy,setBusy]=useState(false),[error,setError]=useState(''),qc=useQueryClient();return <Dialog open={open} onOpenChange={v=>!v&&onClose()} title={title} description={description}>{error&&<p className="form-error">{error}</p>}<div className="dialog-footer"><Button variant="outline" onClick={onClose}>Keep record</Button><Button variant="destructive" disabled={busy} onClick={async()=>{setBusy(true);setError('');try{await onConfirm();await qc.invalidateQueries();toast.success('Record updated');onClose();}catch(e){setError(message(e));}finally{setBusy(false);}}}>{busy?'Updating…':'Confirm'}</Button></div></Dialog>;
+}
+export const optionRows=(rows:DataRow[]|undefined)=>rows?.map(r=>({value:r.id,label:r.name||r.display_name||r.code}))||[];

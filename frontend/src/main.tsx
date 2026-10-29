@@ -1,0 +1,22 @@
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { BrowserRouter,Routes,Route,Navigate } from 'react-router-dom';
+import { QueryClient,QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'sonner';
+import { AuthProvider,useAuth } from './auth';
+import { Layout } from './Layout';
+import { Login } from './pages/Login';
+import { Dashboard } from './pages/Dashboard';
+import { EquipmentDetails,EquipmentForm,EquipmentInventory } from './pages/Equipment';
+import { Borrowings,Reservations } from './pages/Transactions';
+import { Maintenance } from './pages/Maintenance';
+import { Availability,Calendar,Utilization } from './pages/Planning';
+import { AuditLogs,Farmers,Notifications,Reports,Users } from './pages/Management';
+import { Integrations,Settings } from './pages/Administration';
+import { ErrorState } from './components/shared';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import './styles.css';
+import './readability.css';
+const client=new QueryClient({defaultOptions:{queries:{retry:1,refetchOnWindowFocus:false,staleTime:10000}}});
+function Guard({permission,children}:{permission:string;children:React.ReactNode}){const {can}=useAuth();return can(permission)?children:<ErrorState error={new Error('You do not have permission to view this page.')}/>;}
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><ErrorBoundary><QueryClientProvider client={client}><BrowserRouter><AuthProvider><Routes><Route path="/login" element={<Login/>}/><Route element={<Layout/>}><Route index element={<Dashboard/>}/><Route path="equipment" element={<EquipmentInventory/>}/><Route path="equipment/new" element={<Guard permission="equipment.write"><EquipmentForm/></Guard>}/><Route path="equipment/:id/edit" element={<Guard permission="equipment.write"><EquipmentForm/></Guard>}/><Route path="equipment/:id" element={<EquipmentDetails/>}/><Route path="reservations" element={<Guard permission="reservation.request"><Reservations/></Guard>}/><Route path="reservation-calendar" element={<Calendar/>}/><Route path="borrowings" element={<Guard permission="borrowing.request"><Borrowings/></Guard>}/><Route path="returns" element={<Guard permission="return.record"><Borrowings returns/></Guard>}/><Route path="maintenance" element={<Guard permission="maintenance.read"><Maintenance/></Guard>}/><Route path="maintenance-calendar" element={<Guard permission="maintenance.read"><Calendar maintenance/></Guard>}/><Route path="availability" element={<Availability/>}/><Route path="utilization" element={<Guard permission="report.read"><Utilization/></Guard>}/><Route path="reports" element={<Guard permission="report.read"><Reports/></Guard>}/><Route path="farmers" element={<Guard permission="farmer.read"><Farmers/></Guard>}/><Route path="users" element={<Guard permission="user.manage"><Users/></Guard>}/><Route path="notifications" element={<Notifications/>}/><Route path="integrations" element={<Guard permission="integration.manage"><Integrations/></Guard>}/><Route path="audit" element={<Guard permission="audit.read"><AuditLogs/></Guard>}/><Route path="settings" element={<Settings/>}/><Route path="*" element={<Navigate to="/" replace/>}/></Route></Routes></AuthProvider></BrowserRouter><Toaster richColors position="bottom-right" closeButton/></QueryClientProvider></ErrorBoundary></React.StrictMode>);

@@ -1,0 +1,82 @@
+{
+  "name": "agriconnect-aeams",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "description": "Centralized PostgreSQL foundation for AgriConnect Module 5",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "db:generate": "prisma generate --schema backend/prisma/schema.prisma",
+    "db:validate": "prisma validate --schema backend/prisma/schema.prisma",
+    "db:migrate": "prisma migrate deploy --schema backend/prisma/schema.prisma",
+    "db:status": "prisma migrate status --schema backend/prisma/schema.prisma",
+    "db:seed": "tsx backend/prisma/seed.ts",
+    "db:bootstrap": "tsx backend/prisma/seed.ts --reference-only",
+    "db:check": "tsx scripts/check-database.ts",
+    "test": "tsx --test --test-concurrency=1 backend/tests/database.test.ts",
+    "test:postgres": "tsx --test backend/tests/postgres.integration.test.ts",
+    "typecheck": "tsc --noEmit",
+    "dev:backend": "tsx watch backend/src/server.ts",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "build:backend": "tsc -p backend/tsconfig.json",
+    "build:frontend": "npm run build --workspace frontend",
+    "build": "npm run build:backend && npm run build:frontend",
+    "start": "node backend/dist/server.js",
+    "test:api": "tsx --test --test-concurrency=1 backend/tests/api.test.ts",
+    "test:deployment": "tsx --test backend/tests/deployment.test.ts",
+    "deploy:check": "tsx scripts/check-production.ts",
+    "backup": "tsx scripts/backup-application.ts",
+    "backup:verify": "tsx scripts/verify-backup.ts",
+    "test:browser": "tsx scripts/browser-check.ts",
+    "admin:create": "tsx scripts/create-admin.ts",
+    "test:postgres:local": "tsx scripts/test-postgres-local.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.0",
+    "bcryptjs": "3.0.2",
+    "cookie-parser": "1.4.7",
+    "cors": "2.8.5",
+    "dotenv": "16.6.1",
+    "express": "5.1.0",
+    "express-rate-limit": "8.7.2",
+    "helmet": "8.1.0",
+    "jsonwebtoken": "9.0.2",
+    "multer": "2.5.0",
+    "pdfkit": "0.17.2",
+    "pg": "8.16.3",
+    "swagger-ui-express": "5.0.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.14",
+    "@playwright/test": "1.56.1",
+    "@types/cookie-parser": "1.4.9",
+    "@types/cors": "2.8.19",
+    "@types/express": "5.0.3",
+    "@types/jsonwebtoken": "9.0.10",
+    "@types/multer": "2.0.0",
+    "@types/node": "22.18.0",
+    "@types/pdfkit": "0.17.3",
+    "@types/pg": "8.15.5",
+    "@types/supertest": "6.0.3",
+    "@types/swagger-ui-express": "4.1.8",
+    "prisma": "6.19.0",
+    "supertest": "7.1.4",
+    "tsx": "4.20.5",
+    "typescript": "5.9.2"
+  },
+  "optionalDependencies": {
+    "@esbuild/linux-x64": "^0.25.12"
+  },
+  "overrides": {
+    "vite": "7.3.7",
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.2",
+      "effect": "3.20.0"
+    }
+  }
+}

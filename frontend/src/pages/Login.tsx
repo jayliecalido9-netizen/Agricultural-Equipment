@@ -1,0 +1,17 @@
+import { useState } from 'react';
+import { Navigate,useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Eye,EyeOff,Sprout,ArrowRight,ShieldCheck,Tractor,LoaderCircle } from 'lucide-react';
+import { api,message } from '../lib/api';
+import { SYSTEM_TITLE,SYSTEM_DESCRIPTION } from '../lib/branding';
+import { useAuth } from '../auth';
+import { Button } from '../components/ui/button';
+const schema=z.object({email:z.string().email('Enter a valid email address.'),password:z.string().min(1,'Enter your password.')});
+export function Login(){const {user}=useAuth(),[show,setShow]=useState(false),[error,setError]=useState(''),navigate=useNavigate(),qc=useQueryClient();const form=useForm<z.infer<typeof schema>>({resolver:zodResolver(schema)});
+  if(user)return <Navigate to="/" replace/>;
+  return <div className="login-page"><section className="login-visual"><div className="login-brand"><Sprout size={28}/><strong>AEAMS</strong></div><div className="login-message"><div className="login-eyebrow">GROWING TOGETHER. MANAGING BETTER.</div><h1>{SYSTEM_TITLE}</h1><p>{SYSTEM_DESCRIPTION}</p><div className="login-illustration"><Tractor size={116} strokeWidth={1}/><div className="field-lines"/></div><div className="login-office"><span><Sprout size={20}/></span><div><strong>Bongabong Municipal Agriculture Office</strong><small>{SYSTEM_TITLE}</small></div></div></div><span className="login-copyright">Municipal Agricultural Asset Management</span></section>
+  <section className="login-form-area"><div className="login-card"><span className="login-module"><Tractor size={20}/></span><p className="login-system-name">{SYSTEM_TITLE}</p><p className="eyebrow">AEAMS</p><h2>Welcome back</h2><p className="muted">Sign in to your agricultural equipment workspace.</p><form onSubmit={form.handleSubmit(async values=>{setError('');try{await api.post('/auth/login',values);await qc.invalidateQueries({queryKey:['me']});navigate('/');}catch(e){setError(message(e));}})}><label className="form-field"><span>Email address</span><input type="email" autoComplete="username" placeholder="you@example.test" {...form.register('email')}/>{form.formState.errors.email&&<small className="field-error">{form.formState.errors.email.message}</small>}</label><label className="form-field"><span>Password</span><div className="password-field"><input type={show?'text':'password'} autoComplete="current-password" placeholder="Enter your password" {...form.register('password')}/><button type="button" aria-label={show?'Hide password':'Show password'} onClick={()=>setShow(!show)}>{show?<EyeOff size={18}/>:<Eye size={18}/>}</button></div>{form.formState.errors.password&&<small className="field-error">{form.formState.errors.password.message}</small>}</label>{error&&<p className="form-error" role="alert">{error}</p>}<Button className="login-submit" disabled={form.formState.isSubmitting}>{form.formState.isSubmitting?<LoaderCircle size={17} className="spin"/>:<>Sign in to workspace<ArrowRight size={17}/></>}</Button></form><div className="secure-note"><ShieldCheck size={16}/>Secure access for Admin and Employee accounts</div><p className="login-help">Need access? Contact your MAO administrator.</p></div><div className="login-bottom">Bongabong Municipal Agriculture Office<br/><span>{SYSTEM_TITLE}</span></div></section></div>;
+}

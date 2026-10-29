@@ -1,0 +1,2 @@
+export const SYSTEM_TITLE='Agricultural Equipment and Asset Management System';
+export const SYSTEM_DESCRIPTION='A system developed to manage agricultural machinery, equipment, and other municipal agricultural assets. It supports equipment reservations, borrowing and return transactions, maintenance scheduling, equipment availability monitoring, and asset utilization tracking to improve operational efficiency.';

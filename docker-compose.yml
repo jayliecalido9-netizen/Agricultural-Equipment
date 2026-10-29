@@ -1,0 +1,104 @@
+name: agriconnect
+services:
+  db:
+    image: postgres:17.6-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-agriconnect}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?Run scripts/Initialize-Environment.ps1 first}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+      AEAMS_MIGRATOR_PASSWORD: ${AEAMS_MIGRATOR_PASSWORD:?Missing migration password}
+      AEAMS_APP_PASSWORD: ${AEAMS_APP_PASSWORD:?Missing application password}
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - agriconnect_postgres_data:/var/lib/postgresql/data
+      - ./database/init/10-aeams.sh:/docker-entrypoint-initdb.d/10-aeams.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks: [erp]
+  db-tools:
+    profiles: [tools]
+    image: agriconnect-database-tools:${AEAMS_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile.database
+    environment:
+      DATABASE_URL: postgresql://aeams_migrator:${AEAMS_MIGRATOR_PASSWORD}@db:5432/${POSTGRES_DB:-agriconnect}?schema=aeams
+      APP_DATABASE_URL: postgresql://aeams_app:${AEAMS_APP_PASSWORD}@db:5432/${POSTGRES_DB:-agriconnect}?schema=aeams
+      ALLOW_DEMO_SEED: ${ALLOW_DEMO_SEED:-false}
+      DEMO_ADMIN_EMAIL: ${DEMO_ADMIN_EMAIL:-admin@example.test}
+      DEMO_ADMIN_PASSWORD: ${DEMO_ADMIN_PASSWORD:-}
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [erp]
+    command: ["npm", "run", "db:migrate"]
+  db-migrate:
+    image: agriconnect-database-tools:${AEAMS_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: Dockerfile.database
+    environment:
+      DATABASE_URL: postgresql://aeams_migrator:${AEAMS_MIGRATOR_PASSWORD}@db:5432/${POSTGRES_DB:-agriconnect}?schema=aeams
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [erp]
+    command: ["sh", "-c", "npm run db:migrate && npm run db:bootstrap"]
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    restart: unless-stopped
+    environment:
+      APP_DATABASE_URL: postgresql://aeams_app:${AEAMS_APP_PASSWORD}@db:5432/${POSTGRES_DB:-agriconnect}?schema=aeams
+      JWT_SECRET: ${JWT_SECRET:?Run scripts/Initialize-Application.ps1 first}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:3000}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 5000
+      UPLOAD_DIRECTORY: /app/uploads
+      INTEGRATION_ALLOWED_HOSTS: ${INTEGRATION_ALLOWED_HOSTS:-}
+      FFRMS_API_TOKEN: ${FFRMS_API_TOKEN:-}
+      APMS_API_TOKEN: ${APMS_API_TOKEN:-}
+      AISMS_API_TOKEN: ${AISMS_API_TOKEN:-}
+      AASMS_API_TOKEN: ${AASMS_API_TOKEN:-}
+      ABPMS_API_TOKEN: ${ABPMS_API_TOKEN:-}
+    ports:
+      - "127.0.0.1:5000:5000"
+    volumes:
+      - equipment_uploads:/app/uploads
+    depends_on:
+      db-migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5000/api/v1/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+    networks: [erp]
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-3000}:80"
+    depends_on:
+      backend: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [erp]
+networks:
+  erp:
+volumes:
+  agriconnect_postgres_data:
+  equipment_uploads:

@@ -1,0 +1,26 @@
+@media screen {
+  .nav-link{font-size:12px;color:#576f60}.nav-section>p{font-size:9px;color:#778b7d}.workspace-badge strong{font-size:12px}.workspace-badge small{font-size:10px;color:#64748b}
+  .breadcrumb,.breadcrumb strong,.profile-button strong{font-size:12px}.profile-button small{font-size:10px;color:#64748b}.global-search{font-size:11px;color:#64748b}
+  .page-description{font-size:13px;color:#64748b}.eyebrow{font-size:10px;color:#657c6c}.greeting-strip p{font-size:12px;color:#53725c}.greeting-strip a{font-size:11px;color:#357247}
+  .stat-top{font-size:12px;color:#5b7463}.stat-value{font-size:31px}.stat-value>span{font-size:11px;color:#728579}.stat-foot{font-size:10px;color:#6f8175}
+  .panel-heading h2{font-size:14px}.panel-heading p{font-size:11px;color:#64748b}.subtle-chip{font-size:10px;color:#64748b}.chart-legend{font-size:10px;color:#64748b}
+  .status-legend>div,.status-legend strong{font-size:11px;color:#5b7363}.donut-label span{font-size:10px;color:#64748b}.section-heading p{font-size:11px;color:#64748b}.section-heading>a,.table-link{font-size:11px;color:#3c8050}
+  th{font-size:11px;color:#64748b}td{font-size:12px;color:#5a7162}.equipment-cell strong{font-size:12px;color:#365741}.equipment-cell small,.stacked-cell small{font-size:10px;color:#64748b}.badge{font-size:10px;color:#5c7163}
+  .badge-available,.badge-good,.badge-excellent,.badge-approved,.badge-returned,.badge-completed,.badge-verified,.badge-connected,.badge-active{color:#297141}
+  .badge-pending,.badge-requested,.badge-reserved,.badge-scheduled,.badge-fair,.badge-high{color:#95651a}.badge-released,.badge-borrowed,.badge-in_progress,.badge-mock,.badge-ffrms{color:#3f6392}
+  .badge-overdue,.badge-damaged,.badge-unserviceable,.badge-unavailable,.badge-rejected,.badge-urgent,.badge-error{color:#aa4c3b}.badge-under_maintenance,.badge-local_fallback{color:#7b5399}
+  .row-actions>button:not(.button),.receipt-link{font-size:11px}.row-actions>button:not(.button){color:#5d7d66}.utilization-list>div>div:first-child,.utilization-list strong{font-size:11px;color:#5a7862}
+  .quick-actions>span{font-size:12px;color:#5b7c63}.quick-actions a{font-size:10px;color:#4c7e58}.app-footer{font-size:9px;color:#74887a}.pagination{font-size:11px;color:#64748b}
+  .search-field>input,.toolbar-filters select{font-size:12px}.form-field{font-size:12px;color:#56755f}.form-field>small{font-size:10px;color:#64748b}.dialog-heading p{font-size:12px;color:#64748b}
+  dt{font-size:12px;color:#64748b}dd{font-size:12px;color:#46684e}.info-banner{font-size:12px;color:#54765d}.calendar-note,.calendar-legend{font-size:11px;color:#64748b}.weekday,.day-number{font-size:12px}.calendar-event{font-size:10px}
+  .report-controls label,.date-range-panel label{font-size:12px;color:#5f7968}.report-controls input,.report-controls select{font-size:12px}.notification-list p,.settings-card>p,.integration-description{font-size:12px;color:#64748b}.notification-list h3{font-size:14px}.notification-list small{font-size:11px;color:#64748b}
+  .login-card>.muted{font-size:13px;color:#64748b}.login-card .form-field>span{font-size:12px;color:#56764d}.login-card input{font-size:14px}.login-help,.secure-note{font-size:11px;color:#6d8261}.login-bottom{font-size:11px;color:#738666}.login-bottom span{font-size:10px;color:#7a8b70}.login-message>p{font-size:14px;color:#c2d1b8}.login-eyebrow{font-size:10px;color:#c2d2b7}.login-office strong{font-size:12px}.login-office small{font-size:11px;color:#b6cba8}.login-copyright{font-size:10px;color:#b0c49f}
+}
+@media screen and (max-width:950px){.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.greeting-strip p{font-size:11px}.stat-top{font-size:11px}.stat-foot{font-size:9px}}
+@media screen and (max-width:700px){.breadcrumb,.breadcrumb strong{font-size:11px}.eyebrow{font-size:9px}.page-description{font-size:12px}.stat-top{font-size:11px}.stat-value{font-size:29px}.stat-value>span{font-size:10px}.stat-foot{font-size:9px;line-height:1.6}.greeting-strip p{font-size:11px}.page-heading h1{font-size:24px}.calendar-event{font-size:9px}.panel-heading h2{font-size:13px}.quick-actions>span{font-size:11px}.quick-actions a{font-size:10px}.login-message h1{font-size:30px}.login-message>p{font-size:12px}}
+
+.login-system-name{font-size:14px;line-height:1.5;font-weight:600;color:#335b43;margin-bottom:12px}
+.workspace-badge strong{line-height:1.45;overflow-wrap:break-word}
+.login-message h1{font-size:clamp(28px,2.6vw,40px);letter-spacing:-1px}
+.login-message>p{max-width:480px;line-height:1.7}
+.app-footer>span:last-child{max-width:65%;text-align:right}

@@ -1,0 +1,49 @@
+name: Verify release
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Generate isolated CI environment
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import {randomBytes} from 'node:crypto';
+          import {writeFileSync} from 'node:fs';
+          const secret=()=>randomBytes(48).toString('hex');
+          const admin=secret(),migrator=secret(),app=secret();
+          writeFileSync('.env',[
+            'POSTGRES_DB=agriconnect',`POSTGRES_ADMIN_PASSWORD=${admin}`,
+            `AEAMS_MIGRATOR_PASSWORD=${migrator}`,`AEAMS_APP_PASSWORD=${app}`,
+            `DATABASE_URL=postgresql://aeams_migrator:${migrator}@localhost:5432/agriconnect?schema=aeams`,
+            `APP_DATABASE_URL=postgresql://aeams_app:${app}@localhost:5432/agriconnect?schema=aeams`,
+            `JWT_SECRET=${secret()}`,'FRONTEND_ORIGIN=http://localhost:3000','COOKIE_SECURE=false',
+            'DEMO_ADMIN_EMAIL=admin@example.test',`DEMO_ADMIN_PASSWORD=${secret()}`
+          ].join('\n')+'\n',{mode:0o600});
+          JS
+      - run: npm run db:generate
+      - run: npm run db:validate
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:deployment
+      - run: npm run build
+      - run: npm audit --audit-level=high
+      - run: docker compose up -d --build --wait
+      - run: docker compose --profile tools run --build --rm -e ALLOW_DEMO_SEED=true db-tools npm run db:seed
+      - run: docker compose --profile tools run --rm db-tools npm run db:check
+      - run: npm run test:api
+      - run: npm run test:postgres:local
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+      - name: Stop isolated CI containers
+        if: always()
+        run: docker compose down

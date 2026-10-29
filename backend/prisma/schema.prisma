@@ -1,0 +1,505 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["aeams"]
+}
+
+model User {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  erp_subject   String?   @unique @db.VarChar(200)
+  email         String    @unique @db.VarChar(254)
+  display_name  String    @db.VarChar(150)
+  password_hash String?   @db.VarChar(100)
+  auth_version  Int       @default(0)
+  farmer_reference_id String? @db.Uuid
+  active        Boolean   @default(true)
+  archived_at   DateTime? @db.Timestamptz(3)
+  created_at    DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at    DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+  roles         UserRole[]
+  notifications Notification[]
+  @@map("users")
+  @@schema("aeams")
+}
+
+model Role {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String @unique @db.VarChar(60)
+  name        String @db.VarChar(100)
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  users       UserRole[]
+  permissions RolePermission[]
+  @@map("roles")
+  @@schema("aeams")
+}
+
+model Permission {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code       String @unique @db.VarChar(100)
+  description String @db.VarChar(250)
+  created_at DateTime @default(now()) @db.Timestamptz(3)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  roles      RolePermission[]
+  @@map("permissions")
+  @@schema("aeams")
+}
+
+model UserRole {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String @db.Uuid
+  role_id    String @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(3)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  user User @relation(fields: [user_id], references: [id], onDelete: Restrict)
+  role Role @relation(fields: [role_id], references: [id], onDelete: Restrict)
+  @@unique([user_id, role_id])
+  @@index([role_id])
+  @@map("user_roles")
+  @@schema("aeams")
+}
+
+model RolePermission {
+  id            String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  role_id       String @db.Uuid
+  permission_id String @db.Uuid
+  created_at    DateTime @default(now()) @db.Timestamptz(3)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  role Role @relation(fields: [role_id], references: [id], onDelete: Restrict)
+  permission Permission @relation(fields: [permission_id], references: [id], onDelete: Restrict)
+  @@unique([role_id, permission_id])
+  @@index([permission_id])
+  @@map("role_permissions")
+  @@schema("aeams")
+}
+
+model EquipmentCategory {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String @unique @db.VarChar(100)
+  description String?
+  archived_at DateTime? @db.Timestamptz(3)
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  equipment   Equipment[]
+  @@map("equipment_categories")
+  @@schema("aeams")
+}
+
+model EquipmentLocation {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String @unique @db.VarChar(50)
+  name        String @db.VarChar(150)
+  description String?
+  is_demo     Boolean @default(false)
+  archived_at DateTime? @db.Timestamptz(3)
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  equipment   Equipment[]
+  @@map("equipment_locations")
+  @@schema("aeams")
+}
+
+model Equipment {
+  id                   String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  asset_code           String @unique @db.VarChar(60)
+  name                 String @db.VarChar(150)
+  category_id          String @db.Uuid
+  location_id          String @db.Uuid
+  description          String?
+  brand                String? @db.VarChar(100)
+  model                String? @db.VarChar(100)
+  serial_number        String? @unique @db.VarChar(150)
+  year_manufactured    Int?
+  acquisition_date     DateTime? @db.Date
+  acquisition_cost     Decimal? @db.Decimal(14, 2)
+  funding_source       String? @db.VarChar(150)
+  procurement_reference String? @db.VarChar(200)
+  assigned_office      String? @db.VarChar(150)
+  responsible_user_id  String? @db.Uuid
+  condition            String @default("GOOD") @db.VarChar(30)
+  maintenance_interval_days Int?
+  warranty_expires_at  DateTime? @db.Date
+  notes                String?
+  is_demo              Boolean @default(false)
+  archived_at          DateTime? @db.Timestamptz(3)
+  created_at           DateTime @default(now()) @db.Timestamptz(3)
+  updated_at           DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  category EquipmentCategory @relation(fields: [category_id], references: [id], onDelete: Restrict)
+  location EquipmentLocation @relation(fields: [location_id], references: [id], onDelete: Restrict)
+  images EquipmentImage[]
+  reservations Reservation[]
+  borrowings BorrowingTransaction[]
+  inspections EquipmentInspection[]
+  schedules MaintenanceSchedule[]
+  work_orders MaintenanceWorkOrder[]
+  bookings EquipmentBooking[]
+  @@index([category_id, archived_at])
+  @@index([location_id])
+  @@index([responsible_user_id])
+  @@map("equipment")
+  @@schema("aeams")
+}
+
+model EquipmentImage {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  equipment_id String @db.Uuid
+  storage_key  String @unique @db.VarChar(500)
+  content_type String @db.VarChar(80)
+  size_bytes   Int
+  caption      String? @db.VarChar(250)
+  is_primary   Boolean @default(false)
+  created_at   DateTime @default(now()) @db.Timestamptz(3)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  equipment Equipment @relation(fields: [equipment_id], references: [id], onDelete: Restrict)
+  @@index([equipment_id])
+  @@map("equipment_images")
+  @@schema("aeams")
+}
+
+/// An FFRMS reference/cache or explicitly authorized local fallback; never a farmer registry.
+model FarmerReference {
+  id                 String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  source             String @db.VarChar(30)
+  external_farmer_id String @db.VarChar(200)
+  display_name       String @db.VarChar(150)
+  barangay_reference String? @db.VarChar(200)
+  verified_at        DateTime? @db.Timestamptz(3)
+  valid_until        DateTime? @db.Timestamptz(3)
+  fallback_authorized_by String? @db.Uuid
+  fallback_reason    String?
+  is_demo            Boolean @default(false)
+  archived_at        DateTime? @db.Timestamptz(3)
+  created_at         DateTime @default(now()) @db.Timestamptz(3)
+  updated_at         DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  reservations Reservation[]
+  borrowings BorrowingTransaction[]
+  @@unique([source, external_farmer_id])
+  @@map("farmer_references")
+  @@schema("aeams")
+}
+
+model Reservation {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reference_code String @unique @db.VarChar(60)
+  equipment_id   String @db.Uuid
+  farmer_id      String @db.Uuid
+  requested_by   String @db.Uuid
+  approved_by    String? @db.Uuid
+  farm_reference String? @db.VarChar(200)
+  starts_at      DateTime @db.Timestamptz(3)
+  ends_at        DateTime @db.Timestamptz(3)
+  purpose        String
+  usage_location String @db.VarChar(250)
+  status         String @default("PENDING") @db.VarChar(30)
+  rejection_reason String?
+  created_at     DateTime @default(now()) @db.Timestamptz(3)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  equipment Equipment @relation(fields: [equipment_id], references: [id], onDelete: Restrict)
+  farmer FarmerReference @relation(fields: [farmer_id], references: [id], onDelete: Restrict)
+  borrowing BorrowingTransaction?
+  @@index([equipment_id, starts_at, ends_at])
+  @@index([status, starts_at])
+  @@index([farmer_id])
+  @@index([requested_by])
+  @@map("reservations")
+  @@schema("aeams")
+}
+
+model BorrowingTransaction {
+  id             String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reference_code String @unique @db.VarChar(60)
+  equipment_id   String @db.Uuid
+  farmer_id      String @db.Uuid
+  reservation_id String? @unique @db.Uuid
+  requested_by   String @db.Uuid
+  approved_by    String? @db.Uuid
+  released_by    String? @db.Uuid
+  farm_reference String? @db.VarChar(200)
+  purpose        String
+  starts_at      DateTime @db.Timestamptz(3)
+  expected_return_at DateTime @db.Timestamptz(3)
+  released_at    DateTime? @db.Timestamptz(3)
+  release_condition String? @db.VarChar(30)
+  status         String @default("REQUESTED") @db.VarChar(30)
+  notes          String?
+  created_at     DateTime @default(now()) @db.Timestamptz(3)
+  updated_at     DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  equipment Equipment @relation(fields: [equipment_id], references: [id], onDelete: Restrict)
+  farmer FarmerReference @relation(fields: [farmer_id], references: [id], onDelete: Restrict)
+  reservation Reservation? @relation(fields: [reservation_id], references: [id], onDelete: Restrict)
+  inspections EquipmentInspection[]
+  return_transaction ReturnTransaction?
+  utilization UtilizationLog?
+  @@index([equipment_id, status])
+  @@index([status, expected_return_at])
+  @@index([farmer_id])
+  @@index([requested_by])
+  @@map("borrowing_transactions")
+  @@schema("aeams")
+}
+
+model EquipmentInspection {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  equipment_id String @db.Uuid
+  borrowing_id String @db.Uuid
+  inspector_id String @db.Uuid
+  condition    String @db.VarChar(30)
+  missing_accessories String?
+  damage_description  String?
+  notes        String?
+  photo_keys   String[] @default([])
+  inspected_at DateTime @db.Timestamptz(3)
+  created_at   DateTime @default(now()) @db.Timestamptz(3)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  equipment Equipment @relation(fields: [equipment_id], references: [id], onDelete: Restrict)
+  borrowing BorrowingTransaction @relation(fields: [borrowing_id], references: [id], onDelete: Restrict)
+  return_transaction ReturnTransaction?
+  damages DamageReport[]
+  @@index([equipment_id, inspected_at])
+  @@index([borrowing_id])
+  @@map("equipment_inspections")
+  @@schema("aeams")
+}
+
+model ReturnTransaction {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reference_code String @unique @db.VarChar(60)
+  borrowing_id String @unique @db.Uuid
+  inspection_id String @unique @db.Uuid
+  received_by  String @db.Uuid
+  returned_at  DateTime @db.Timestamptz(3)
+  notes        String?
+  created_at   DateTime @default(now()) @db.Timestamptz(3)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  borrowing BorrowingTransaction @relation(fields: [borrowing_id], references: [id], onDelete: Restrict)
+  inspection EquipmentInspection @relation(fields: [inspection_id], references: [id], onDelete: Restrict)
+  @@map("return_transactions")
+  @@schema("aeams")
+}
+
+model MaintenanceSchedule {
+  id            String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  equipment_id  String @db.Uuid
+  title         String @db.VarChar(150)
+  interval_days Int
+  next_due_at   DateTime @db.Timestamptz(3)
+  active        Boolean @default(true)
+  created_at    DateTime @default(now()) @db.Timestamptz(3)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  equipment Equipment @relation(fields: [equipment_id], references: [id], onDelete: Restrict)
+  work_orders MaintenanceWorkOrder[]
+  @@index([active, next_due_at])
+  @@index([equipment_id])
+  @@map("maintenance_schedules")
+  @@schema("aeams")
+}
+
+model MaintenanceWorkOrder {
+  id            String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reference_code String @unique @db.VarChar(60)
+  equipment_id  String @db.Uuid
+  schedule_id   String? @db.Uuid
+  assigned_to   String? @db.Uuid
+  type          String @db.VarChar(30)
+  description   String
+  priority      String @default("NORMAL") @db.VarChar(20)
+  status        String @default("SCHEDULED") @db.VarChar(30)
+  starts_at     DateTime @db.Timestamptz(3)
+  ends_at       DateTime @db.Timestamptz(3)
+  estimated_cost Decimal @default(0) @db.Decimal(14, 2)
+  completed_at  DateTime? @db.Timestamptz(3)
+  created_at    DateTime @default(now()) @db.Timestamptz(3)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  equipment Equipment @relation(fields: [equipment_id], references: [id], onDelete: Restrict)
+  schedule MaintenanceSchedule? @relation(fields: [schedule_id], references: [id], onDelete: Restrict)
+  records MaintenanceRecord[]
+  damages DamageReport[]
+  @@index([equipment_id, starts_at, ends_at])
+  @@index([assigned_to, status])
+  @@index([schedule_id])
+  @@map("maintenance_work_orders")
+  @@schema("aeams")
+}
+
+model MaintenanceRecord {
+  id            String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  work_order_id String @db.Uuid
+  technician_id String @db.Uuid
+  actual_cost   Decimal @default(0) @db.Decimal(14, 2)
+  repair_notes  String
+  material_issue_reference String? @db.VarChar(200)
+  procurement_reference String? @db.VarChar(200)
+  performed_at  DateTime @db.Timestamptz(3)
+  created_at    DateTime @default(now()) @db.Timestamptz(3)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  work_order MaintenanceWorkOrder @relation(fields: [work_order_id], references: [id], onDelete: Restrict)
+  @@index([work_order_id])
+  @@map("maintenance_records")
+  @@schema("aeams")
+}
+
+model UtilizationLog {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  borrowing_id String @unique @db.Uuid
+  farm_reference String? @db.VarChar(200)
+  operating_hours Decimal @db.Decimal(10, 2)
+  area_hectares Decimal? @db.Decimal(10, 4)
+  activity     String
+  recorded_by  String @db.Uuid
+  created_at   DateTime @default(now()) @db.Timestamptz(3)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  borrowing BorrowingTransaction @relation(fields: [borrowing_id], references: [id], onDelete: Restrict)
+  @@map("utilization_logs")
+  @@schema("aeams")
+}
+
+model DamageReport {
+  id            String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  inspection_id String @db.Uuid
+  work_order_id String? @db.Uuid
+  description   String
+  severity      String @db.VarChar(20)
+  resolved_at   DateTime? @db.Timestamptz(3)
+  created_at    DateTime @default(now()) @db.Timestamptz(3)
+  updated_at    DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  inspection EquipmentInspection @relation(fields: [inspection_id], references: [id], onDelete: Restrict)
+  work_order MaintenanceWorkOrder? @relation(fields: [work_order_id], references: [id], onDelete: Restrict)
+  @@index([inspection_id])
+  @@index([work_order_id])
+  @@map("damage_reports")
+  @@schema("aeams")
+}
+
+model Notification {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String @db.Uuid
+  type       String @db.VarChar(50)
+  title      String @db.VarChar(150)
+  message    String
+  entity_id  String? @db.Uuid
+  dedupe_key String? @unique @db.VarChar(250)
+  read_at    DateTime? @db.Timestamptz(3)
+  created_at DateTime @default(now()) @db.Timestamptz(3)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  user User @relation(fields: [user_id], references: [id], onDelete: Restrict)
+  @@index([user_id, read_at, created_at])
+  @@map("notifications")
+  @@schema("aeams")
+}
+
+model SystemSetting {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key        String @unique @db.VarChar(100)
+  value      Json
+  created_at DateTime @default(now()) @db.Timestamptz(3)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@map("system_settings")
+  @@schema("aeams")
+}
+
+model AuditLog {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_id   String? @db.Uuid
+  action     String @db.VarChar(30)
+  table_name String @db.VarChar(100)
+  entity_id  String @db.Uuid
+  request_id String? @db.VarChar(200)
+  metadata   Json @default("{}")
+  created_at DateTime @default(now()) @db.Timestamptz(3)
+  @@index([table_name, entity_id, created_at])
+  @@index([actor_id, created_at])
+  @@map("audit_logs")
+  @@schema("aeams")
+}
+
+model ExternalModuleReference {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  module      String @db.VarChar(20)
+  entity_type String @db.VarChar(60)
+  external_id String @db.VarChar(200)
+  local_entity_type String @db.VarChar(60)
+  local_entity_id String @db.Uuid
+  verified_at DateTime? @db.Timestamptz(3)
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@unique([module, entity_type, external_id, local_entity_id])
+  @@index([local_entity_type, local_entity_id])
+  @@map("external_module_references")
+  @@schema("aeams")
+}
+
+model IntegrationConnection {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  module       String @unique @db.VarChar(20)
+  mode         String @default("DISABLED") @db.VarChar(20)
+  base_url     String? @db.VarChar(500)
+  api_version  String @default("v1") @db.VarChar(30)
+  secret_env_key String? @db.VarChar(100)
+  timeout_ms   Int @default(5000)
+  max_retries  Int @default(3)
+  verified_at  DateTime? @db.Timestamptz(3)
+  last_success_at DateTime? @db.Timestamptz(3)
+  last_error_code String? @db.VarChar(100)
+  created_at   DateTime @default(now()) @db.Timestamptz(3)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@map("integration_connections")
+  @@schema("aeams")
+}
+
+model IntegrationEvent {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  module      String @db.VarChar(20)
+  external_event_id String @db.VarChar(200)
+  event_type  String @db.VarChar(100)
+  payload     Json
+  status      String @default("RECEIVED") @db.VarChar(30)
+  processed_at DateTime? @db.Timestamptz(3)
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@unique([module, external_event_id])
+  @@index([status, created_at])
+  @@map("integration_events")
+  @@schema("aeams")
+}
+
+model IntegrationOutbox {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  target_module String @db.VarChar(20)
+  event_type  String @db.VarChar(100)
+  aggregate_id String @db.Uuid
+  idempotency_key String @unique @db.VarChar(200)
+  payload     Json
+  status      String @default("PENDING") @db.VarChar(30)
+  attempts    Int @default(0)
+  available_at DateTime @default(now()) @db.Timestamptz(3)
+  locked_until DateTime? @db.Timestamptz(3)
+  locked_by   String? @db.VarChar(100)
+  published_at DateTime? @db.Timestamptz(3)
+  last_error_code String? @db.VarChar(100)
+  created_at  DateTime @default(now()) @db.Timestamptz(3)
+  updated_at  DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  @@index([status, available_at])
+  @@index([target_module, created_at])
+  @@map("integration_outbox")
+  @@schema("aeams")
+}
+
+/// Internal projection maintained by triggers. Application role must not write this table.
+model EquipmentBooking {
+  id           String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  equipment_id String @db.Uuid
+  source_type  String @db.VarChar(30)
+  source_id    String @unique @db.Uuid
+  starts_at    DateTime @db.Timestamptz(3)
+  ends_at      DateTime? @db.Timestamptz(3)
+  created_at   DateTime @default(now()) @db.Timestamptz(3)
+  updated_at   DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  equipment Equipment @relation(fields: [equipment_id], references: [id], onDelete: Restrict)
+  @@index([equipment_id])
+  @@map("equipment_bookings")
+  @@schema("aeams")
+}
