@@ -123,6 +123,40 @@ test('AEAMS API against isolated PostgreSQL with restricted runtime credentials'
       await adminAgent.get(`/api/v1/calendar?starts_at=${encodeURIComponent(from)}&ends_at=${encodeURIComponent(to)}`).expect(200);
       await adminAgent.get('/api/v1/utilization').expect(200);
     });
+    await suite.test('dashboard includes overdue recurring plans without inactive or archived plans',async()=>{
+      const overdueDate=new Date(Date.now()-86400000),futureDate=new Date(Date.now()+86400000);
+      const due=await runtime.maintenanceSchedule.create({data:{equipment_id:equipmentId,title:'Overdue dashboard inspection',interval_days:90,next_due_at:overdueDate}});
+      const inactive=await runtime.maintenanceSchedule.create({data:{equipment_id:equipmentId,title:'Inactive dashboard inspection',interval_days:90,next_due_at:overdueDate,active:false}});
+      const future=await runtime.maintenanceSchedule.create({data:{equipment_id:equipmentId,title:'Future dashboard inspection',interval_days:90,next_due_at:futureDate}});
+      const archived=await runtime.equipment.create({data:{asset_code:'DASHBOARD-ARCHIVED',name:'Archived dashboard fixture',category_id:demoId(11),location_id:demoId(10),archived_at:new Date()}});
+      const archivedPlan=await runtime.maintenanceSchedule.create({data:{equipment_id:archived.id,title:'Archived equipment inspection',interval_days:90,next_due_at:overdueDate}});
+      for(const agent of [adminAgent,employeeAgent]){
+        const response=await agent.get('/api/v1/dashboard').expect(200),data=response.body.data;
+        assert.ok(data.overdueMaintenancePlanCount>=1);
+        assert.ok(data.overdueMaintenancePlans.some((plan:{id:string})=>plan.id===due.id));
+        for(const excluded of [inactive.id,future.id,archivedPlan.id])assert.ok(!data.overdueMaintenancePlans.some((plan:{id:string})=>plan.id===excluded));
+        assert.ok(data.overdueMaintenancePlans.every((plan:{active:boolean;next_due_at:string;equipment:{name:string}})=>plan.active&&new Date(plan.next_due_at)<new Date()&&plan.equipment.name));
+        assert.equal(data.overdueMaintenancePlanCount,await runtime.maintenanceSchedule.count({where:{active:true,next_due_at:{lt:new Date()},equipment:{archived_at:null}}}));
+      }
+    });
+    await suite.test('dashboard assigns releases at Philippine midnight to the correct month',async()=>{
+      const [{year,month}]=await runtime.$queryRaw<{year:number;month:number}[]>`SELECT extract(year FROM now() AT TIME ZONE 'Asia/Manila')::int AS year,extract(month FROM now() AT TIME ZONE 'Asia/Manila')::int AS month`;
+      const monthStart=Date.UTC(year,month-2,1)-8*3600000;
+      const monthName=(date:number)=>new Date(date).toLocaleDateString('en-PH',{month:'short',timeZone:'Asia/Manila'});
+      const previousMonth=monthName(monthStart-1),nextMonth=monthName(monthStart);
+      const before=(await adminAgent.get('/api/v1/dashboard').expect(200)).body.data.monthly as {month:string;borrowings:number}[];
+      const beforeCount=(name:string)=>before.find(row=>row.month===name)!.borrowings;
+      for(const [index,released]of [monthStart-1,monthStart,monthStart+30*60000].entries()){
+        const asset=await runtime.equipment.create({data:{asset_code:`DASHBOARD-MONTH-${index}`,name:'Dashboard month boundary fixture',category_id:demoId(11),location_id:demoId(10)}});
+        const loan=await runtime.borrowingTransaction.create({data:{reference_code:`DASHBOARD-MONTH-${index}`,equipment_id:asset.id,farmer_id:demoId(20),requested_by:demoId(1),starts_at:new Date(released-3600000),expected_return_at:new Date(released+3600000),purpose:'Dashboard timezone verification'}});
+        await runtime.borrowingTransaction.update({where:{id:loan.id},data:{status:'APPROVED',approved_by:demoId(1)}});
+        await runtime.borrowingTransaction.update({where:{id:loan.id},data:{status:'RELEASED',released_by:demoId(2),released_at:new Date(released),release_condition:'GOOD'}});
+      }
+      const after=(await adminAgent.get('/api/v1/dashboard').expect(200)).body.data.monthly as {month:string;borrowings:number}[];
+      assert.equal(after.length,6);
+      assert.equal(after.find(row=>row.month===previousMonth)!.borrowings,beforeCount(previousMonth)+1);
+      assert.equal(after.find(row=>row.month===nextMonth)!.borrowings,beforeCount(nextMonth)+2);
+    });
     await suite.test('reminders are deduplicated and notifications are personal',async()=>{
       await generateReminders(runtime);const before=await runtime.notification.count();await generateReminders(runtime);assert.equal(await runtime.notification.count(),before);
       const n=await employeeAgent.get('/api/v1/notifications').expect(200);assert.ok(n.body.data.every((r:{user_id:string})=>r.user_id===demoId(2)));

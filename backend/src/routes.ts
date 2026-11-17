@@ -284,14 +284,21 @@ export function registerRoutes(app:Express,db:PrismaClient,config:AppConfig) {
     } catch(error) {await withActor(db,req.actor.id,req.requestId,tx=>tx.integrationConnection.update({where:{module},data:{verified_at:null,last_error_code:'CONNECTION_TEST_FAILED'}}));throw error;}
   });
   app.get(`${base}/dashboard`,permit('equipment.read'),async(req,res)=>{
-    const [summary,status,monthly,maintenance,recentReservations,recentBorrowings,upcoming,maintenanceAlerts]=await Promise.all([
+    const now=new Date();
+    const overduePlansWhere={active:true,next_due_at:{lt:now},equipment:{archived_at:null}};
+    const [summary,status,monthly,maintenance,recentReservations,recentBorrowings,upcoming,maintenanceAlerts,overdueMaintenancePlans,overdueMaintenancePlanCount]=await Promise.all([
       db.$queryRaw`SELECT * FROM aeams.dashboard_summary`,db.$queryRaw`SELECT availability AS name,count(*)::int AS value FROM aeams.equipment_availability WHERE archived_at IS NULL GROUP BY availability`,
-      db.$queryRaw`SELECT to_char(m,'Mon') AS month,count(b.id)::int AS borrowings FROM generate_series(date_trunc('month',now())-interval '5 months',date_trunc('month',now()),interval '1 month') m LEFT JOIN aeams.borrowing_transactions b ON date_trunc('month',b.released_at)=m GROUP BY m ORDER BY m`,
+      db.$queryRaw`SELECT to_char(m,'Mon') AS month,count(b.id)::int AS borrowings
+        FROM generate_series(date_trunc('month',now() AT TIME ZONE 'Asia/Manila')-interval '5 months',date_trunc('month',now() AT TIME ZONE 'Asia/Manila'),interval '1 month') m
+        LEFT JOIN aeams.borrowing_transactions b ON b.released_at >= (m AT TIME ZONE 'Asia/Manila') AND b.released_at < ((m+interval '1 month') AT TIME ZONE 'Asia/Manila')
+        GROUP BY m ORDER BY m`,
       db.maintenanceWorkOrder.groupBy({by:['status'],_count:true}),db.reservation.findMany({include:{equipment:{select:{name:true}},farmer:{select:{display_name:true}}},take:5,orderBy:{created_at:'desc'}}),
       db.borrowingTransaction.findMany({include:{equipment:{select:{name:true}},farmer:{select:{display_name:true}}},take:5,orderBy:{created_at:'desc'}}),
       db.borrowingTransaction.findMany({where:{status:{in:['RELEASED','OVERDUE']}},include:{equipment:{select:{name:true}}},take:5,orderBy:{expected_return_at:'asc'}}),
-      db.maintenanceWorkOrder.findMany({where:{status:{in:['SCHEDULED','IN_PROGRESS']}},include:{equipment:{select:{name:true}}},take:5,orderBy:{starts_at:'asc'}})]);
-    result(res,{summary:(summary as unknown[])[0],status,monthly,maintenance,recentReservations,recentBorrowings,upcoming,maintenanceAlerts,utilization:await utilization(db,{})});
+      db.maintenanceWorkOrder.findMany({where:{status:{in:['SCHEDULED','IN_PROGRESS']}},include:{equipment:{select:{name:true}}},take:5,orderBy:{starts_at:'asc'}}),
+      db.maintenanceSchedule.findMany({where:overduePlansWhere,include:{equipment:{select:{name:true}}},take:5,orderBy:[{next_due_at:'asc'},{id:'asc'}]}),
+      db.maintenanceSchedule.count({where:overduePlansWhere})]);
+    result(res,{summary:(summary as unknown[])[0],status,monthly,maintenance,recentReservations,recentBorrowings,upcoming,maintenanceAlerts,overdueMaintenancePlans,overdueMaintenancePlanCount,utilization:await utilization(db,{})});
   });
   app.get(`${base}/utilization`,permit('report.read'),async(req,res)=>result(res,await utilization(db,req.query)));
   registerReports(app,db);
